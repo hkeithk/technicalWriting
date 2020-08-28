@@ -1,0 +1,1 @@
+This presentation required students to take and read published work by researchers and cut, combine and revise their work into their own. This culminated in a presentation and poster designed to imitate the experience of researchers presenting

@@ -1,0 +1,464 @@
+\documentclass[sigconf]{acmart}
+\documentclass[10pt]
+\usepackage{natbib}
+\usepackage{soul}
+\usepackage{booktabs} % For formal tables
+\usepackage{graphicx}
+\usepackage{fullpage}
+\usepackage{dblfloatfix}
+%\usepackage{ftnright}
+
+\usepackage{times}
+\usepackage{fancyhdr,graphicx,amsmath,amssymb}
+\usepackage[ruled,vlined]{algorithm2e}
+
+\usepackage{tabulary}
+\usepackage[para]{threeparttable}
+\usepackage{array,booktabs,longtable,tabularx}
+\usepackage{lipsum}
+
+\include{pythonlisting}
+
+\graphicspath{{./images/}}
+
+\acmArticle{4}
+\acmPrice{15.00}
+
+%----bibliography related------
+%\usepackage[
+%backend=biber,
+%style=alphabetic,
+%citestyle=authoryear
+%]{biblatex}
+
+%\addbibresource{bibliography.bib}
+%\citestyle{acmauthoryear}
+%-------------------------
+
+\begin{document}
+
+\title{Data Mining for Strategic Product Prioritization}
+
+\author{Keith Ho}
+\affiliation{
+  \institution{University of California - Santa Cruz}
+  \streetaddress{1156 High St.}
+  \city{Santa Cruz}
+  \state{California}
+  \postcode{95064}
+}
+
+\author{Wei Peng}
+\affiliation{
+    \institution{Xerox Corporation}
+    \city{Webster}
+    \state{New York}
+}
+
+\author{Tong Sun}
+\affiliation{
+    \institution{Xerox Corporation}
+    \city{Webster}
+    \state{New York}
+}
+
+\begin{abstract}
+Businesses in the 21st century recognize that in order to become increasingly competitive and sustain long-term growth, they must become more customer-focused. In order to succeed in doing so, companies must do extensive research and analysis on the VoC. We introduce the concept of VoC (Voice of the Customer) data (i.e., reports of feedback and suggestions provided to the enterprise through customers) and its importance in driving actionable, strategic business decisions. Despite knowledge of the importance of the VoC, technologies that have been developed to understand these environments are generally error-prone, time-consuming, and human-driven that rarely scale as the amount of customer data sharply increases. This article explains the development of a hybrid framework that combines a data-driven approach and domain knowledge to process customer requests. This framework consists of taking current functional features, discovering correlation between them, and recognizing changes in the feature trends using the transformation model. In addition to utilizing our framework, we must also take into consideration the importance of different customers and their respective requests, as this can often have direct impact on effectively prioritizing different features in the development process. This is done through a novel semantic enhanced link-based ranking (SELRank) algorithm that will set a ranking/rating to each customers requests. These frameworks and technologies have been successfully implemented in Xerox's Office Group Feature Enhancement Requirements (XOG FER) datasets, to analyze real-world customer requests. 
+
+\end{abstract}
+
+\ccsdesc[500]{Information Storage and Retrieval}
+\ccsdesc{Artificial Intelligence}
+
+%\keywords{Voice of the Customer, business prioritization, text mining, ranking}
+\maketitle
+
+\footnote{The article I am basing my work on is; Wei Peng, Tong Sun, Shriram Revankar, and Tao Li. Mining the voice of the customer; for business prioritization. \textit{ACM Trans. Intell. Syst. Technol}., 3(2):38:1 - 38:17, February 2012. I will be submitting to the 2019 ACM SIGMOD/PODS Conference. The URL to this conference is: http://sigmod2019.org/
+}
+
+\section{Introduction}
+The intent behind mining the ``Voice of the Customer" (VoC) is to improve the process of developing key functional requirements that are effective in addressing the needs of customers. Oftentimes, organizations incorrectly assume they understand their customers, leading to unsatisfactory product development. Instead, we allow customers to speak their concerns and provide uninterrupted feedback. To be successful, companies must actively engage customers to gather and analyze customer information. Effective data requires the following fields: a textual description about concerns or desired features, competitive or similar products, and customer information. Customer information refers to the users name, any products they may own, associated market segment, and business size. Oftentimes, the product referenced in the report will belong to some product family or category within the enterprise. Customer reports should be collected from multiple sources or customer persona's, such as marketing, sales announcements, emails, contact centers, surveys, etc. 
+
+In the past, customer requirements are collected through mass interviews that are then analyzed by multiple functional groups of the business including product management, sales and engineering. However, due to the human nature of these activities, this process often introduces errors and is difficult to scale. 
+
+Methods such as \cite{Gao:2004:MLA:1015330.1015361} \cite{RomanoJr:2000:MCA:795709.799081} have been developed to analyze this data, however, they are one-dimensional and too heavily focused on the data itself. The follow issues discuss why these analytical methods are ineffective:
+
+(1) They funnel information through various sources and are applied to customer facing applications such as marketing research or customer support. They do not address decision making for product development based off VoC data. (2) They are heavily data-driven (i.e., utilize linguistic techniques to determine the data structure), instead of incorporating expert knowledge into the analytical process. (3) Current methods do not weigh the importance of customer needs on certain products. This step is crucial in order to properly prioritize which features to implement. This must be done by incorporating both semantics and product/customer relationships.
+
+This article will discuss how we utilize our hybrid framework to combine domain knowledge and data mining algorithms to analyze VoC data. This framework is comprised of (i) leverage domain knowledge to categorize data into clusters (ii) prioritize customer requests using a link-based ranking algorithm (iii) conduct a study on Xerox Office Group's VoC data that contains 1878 product requests from 2000 to 2006. 
+
+\begin{figure*}[!b]
+    \centering
+    \includegraphics[width=0.7\textwidth]{images/Figure1.png}
+    \caption{The proposed VoC analytic framework}
+    \label{fig:1}
+\end{figure*}
+
+\section{The Integrated Framework}
+To start, we would like to explain some terminology that will be used throughout this article. \textit{Requests} reference documents or requirements in this article. One example of a customer request in XOG included ``Requesting authenticated SMTP functionality. Users are required to authenticate to network to scan and email externally at WCP for email customer considers it more secure that email works via user credentials instead of enabling a relay exception for WCP". In addition, the document contains related information, such as ``WorkCenterPro35:45:55". The customer who requested this feature also owns approximately 1000 Xerox machines. 
+
+``Features" refer to the functionalities that customers demand for some product, such as credential-required scan-to-email. Similar features such as ``OCR" and ``Multiple TIDD" are grouped into the same clusters because they all reference the customer need to ``scan". The hybrid VoC framework is illustrated in Figure 1 and explains the following components.
+
+\begin{enumerate}
+  \item We begin by pre-processing the raw VoC textual data \cite{Rajagopalan:2001:EDP:2220403.2220656} using text processing techniques such as skipping stop words and extracting key words using TFIDF (Text Frequency Inverse Document Frequency) \cite{Salton:1988:TAA:54259.54260}.
+   \item Using the Knowledge transformation model
+   \citestyle{Li:2008:KTW:1390334.1390368}, we cluster the semantic VoC data into key feature clusters. We then capture domain knowledge from experts in each functional area utilizing product taxonomy, marketing terminology, keywords for major features, and inter-relationships between these elements. The knowledge transformation model from Table II is used whenever there is adequate information on domain terminology.
+   \item Take the sum of each cluster over a specific time period. Incorporating time allows the importance of the feature to flow and change, allowing us to capture evolving market trends. \cite{Last:2001:KDT:2225286.2225838} \cite{Zhang:2004:DGN:2220415.2220823}. Step (3b) allows for calculations on any overlap between clusters, however, we do not focus on (3a) and (3b). 
+   \item Steps (4) and (5), explain developing a novel semantic enhanced link-based ranking algorithm (SELRank) to prioritize the requests within each cluster. 
+\end{enumerate} 
+
+Steps (4) and (5) are critical parts of this process. Company resources are often limited resulting in a trade-off between customer needs and company resources. This results in the necessity of feature prioritization to improve business decision making. SELRank is unique compared to other ranking algorithms such as \cite{Haveliwala:2002:TP:511446.511513} \cite{Kleinberg:1999:ASH:324133.324140} \cite{Wu:2005:ULM:1068511.1069402} \cite{Xue:2005:EHS:1076034.1076068} 
+\cite{Zhou:2007:CAD:1441428.1442053}, due to two things: First, it takes into account explicit topological links, but also any implied semantic-links in a set of inter-related networks based on semantic similarity and domain knowledge. Second, SELRank computes ranking vectors per cluster, per domain semantic term across feature clusters, or per query term. The SELRank algorithm essentially allows the user to prioritize requests from either a specific cluster or across all clusters.   
+
+The program can organize each customers requests that refer to ``Security Scan" or product ``WorkCenterPro 35:45:55". SELRank is also capable of prioritizing products with the ``Security Scan" feature request. If a development team wished to review the top customer requests for a ``scan" feature, they can view top prioritized ``scan"-related requests and products, allowing the development team/ management to make effective decisions and quickly respond to customer requests. 
+
+In section 3, we will introduce domain knowledge based semi-supervised clustering approaches to categorize VoC data into feature clusters; Section 4 describes the novel semantic enhanced link-based ranking (SELRank) for prioritizing VoC data; Section 5 presents the detailed case studies we conducted on XOG FER data. Lastly, Section 6 concludes all the findings that we have made throughout this research. 
+
+\section{Discover Feature Clusters with Domain Knowledge}
+We utilize domain knowledge to discover the feature clusters, this results in the ability to break VoC data into corresponding functional groups. If you may recall, customers' requests are provided in textual descriptions that are represented in documents. Using common text mining techniques, we pre-process and project the diverse set of reports into a canonical semantic space. Oftentimes domain knowledge is represented in various forms including but not limited to taxonomy, hierarchical types, keywords, rules, etc. Using domain knowledge, we can create more meaningful and effective categorization results \cite{Dayanik:2006:CIP:1148170.1148255} \cite{Liu:2004:FOS:1014052.1014130}. This article focuses on presenting domain knowledge as a group of distinguishing keywords. Each cluster can be captured by a keyword, for example, the ``security" feature can be described as a collection of keywords such as ``authentication", ``password" and ``login". \cite{Li:2008:KTW:1390334.1390368} proposed a knowledge transformation model that allows our team to leverage previous knowledge of domain keywords to discover request clusters. This new model utilizes a non-negative matrix factorization model $$X \approx FSG^T.$$ where X is a \textit{m x n} word-request semantic matrix, F is an \textit{m x k} word-request semantic matrix, F is an \textit{ m x k } non-negative matrix representing prior knowledge in the word space, the $i$-th row of $F$ represents the posterior probability of word $i$ belonging to the $k$-th feature classes, and G is a \textit{n x k} non-negative matrix representing knowledge in document space, that is, the $i$-th row of G represents the posterior probability of requesting $i$ belonging to the $k$-th feature classes (e.g., ``Scan", ``Security", etc.). S is a \textit{k x k} non-negative matrix providing a simplified view of X. We can use the matrix factorization model to more naturally co-cluster words and comments. The prior knowledge of the domain keywords can assist in obtaining the $F_0$ in the framework and $F_0$ is incorporated into the unsupervised clustering frame as a constraint $$\underset{F,G,S}{min} || X- FSG^T||^2+\alpha||F-F_0||^2.$$ Note that $\alpha||F-F_0||^2$ is used to constrain, and the final word clusters F should be highly consistent with the prior domain word clusters $F_0$. Moreover, $\alpha > 0$ is a parameter that determines the extent to which we enforce $F\approx F_0$. By discovering the feature clusters, we are now able to understand what features are most valuable to the customer, and the importance of each feature varying with time.
+
+\section{Prioritize the voice of the customer}
+It is extremely important to understand the level of importance of a specific customer request in order to effectively prioritize and develop new features. Although the importance of a specific request is subjective depending on market trends and many other factors, we can still use data-driven analysis techniques to gather valuable insight on customer requests. This will ultimately improve the decision making process when it comes to prioritizing product development within an enterprise. As requests continue to scale upwards, this allows us to manage large numbers of requests in a short time with less error-prone human review. Finally, this process allows us to address the most important product feature requests. 
+
+\subsection{Semantic Enhanced Link-Based Ranking Algorithm}
+
+\subsubsection{Introduction}
+The SELRank algorithm does combines the importance of the specific customer that is making a request, as well as the importance of the product they are related to within the organization. The algorithm also computers an importance score of each product among all customer requests based off related requests and related products. The representative request is similar to other requests, but it is important because solving the representative requests help solve other requests.
+
+%----explain figure------
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.45\textwidth]{images/Figure2.png}
+    \caption{The link structure in customers requests}
+    \label{fig:1}
+\end{figure}
+
+It makes sense to say that a request related to important products and important customers is important. Similarly, any product associated with important requests and important products is also important. The SELRank algorithm proposes that a request is important if it is linked to any important products, has a strong connection to any important requests, and requested by many important customers. 
+
+We use Figure 2 to provide a visual model of how we link these requests. The links embedded in a customer request are the associations between Request and Customer, as well as each Request and related Product. Oftentimes, semantic links provide more background knowledge that are not initially obvious. Semantic links can be discovered based on content semantic similarity, product family structure, or related market segments. There are three types of nodes: Product, Customer, and Request, and each can be assigned an importance score depending on the customer. These nodes can be broken down further to represent a set of inter/intra-related networks including (product-product, request-request, customer-customer, product-request,and request-customer).
+
+\subsubsection{Link Structure}
+Any links in regards to requests can be weighted based on semantic similarity. Links regarding products are weighted based on ``conceptual distance". This is done through developing a hierarchical product family graph that measures the distance between nodes. A shortest path between two nodes, found using the breadth-first search algorithm will reveal which nodes are ``conceptually closer" and contain similar features. Although our algorithm does not do this, it is simple to implement the same approach towards customer semantic links.  
+
+\subsubsection{The Algorithm and Its Convergence}
+Given the similarity matrix A with $A_i,_j$ as the semantic similarity between the requests $R_i$ and $R_j$ (it can be the similarity between two bags of words), C with $C_l,_j$ be the hierarchical semantic similarity between the products $U_l$ and $U_j$, which can be easily derived from their conceptual distance. An example of this is a feature ``Digital Bookmark Copier" which is similar to a feature ``Digital Bookmark Multi-function". We will use vectors \textit{w} and $w_i$ as the weight of the customer (e.g., a quantitative value that represents the importance of the customer), who raises the request $R_i$, the vector \textit{o} with $o_l$ be the weight of $U_l$ (the importance of product defined by domain experts, or initiated with the equal weight to all other products), the vector \textit{f} with $f_i$ be the final ranking score of the request $R_i$, the vector \textit{h} with $h_1$ be the final ranking score of the product $U_l$, and the matrix B with $B_i,_l$ be 1 if $R_i$ is linked with $U_l$ and 0 otherwise (e.g., the request ``Requesting authenticated SMTP functionality. Users are required to authenticate to the network to scan to email externally at WCP for email customer considers it more secure that email works via user credentials instead of enabling a relay exception for WCP" is associated with product ``WorkCenterPro35:45:55". It is raised by a customer A with about 1000 Xerox machines as his/her importance weight.). Since a request is important if it is strongly linked with many other important requests, $\sum_j \frac{A_i,_jf_j}{\sum_kA_i,_k}$ sum up the importance scores of the connected requests and normalize it with $\sum_kA_i,_k$. For example, if request A is similar to request B and C with similarity scores 0.4 and 0.5, and the importance scores of B and C are 0.5 and 0.4, then the importance score of A is 0.4 (0.4x 0.5 + 0.5 x 0.4). The intuition behind it is that the request similar to many other requests should be the center of this request cluster. It can serve as the most representative request of these requests. In addition, a request is important if it is targeted to many important products so $\sum_{U_l\leftrightarrow_R_i}h_l$ sum up the importance of connected products. The request is almost important if it is asked by many important customers, $\frac{w_i}{\sum_qw_q}$ calculates the request importance by considering the customer's weights. Similarly, the product is important if it is identified to be important by customers, linked to many important requests, and connected to many important products. They are represented as $\frac{o_l}{\sum_qo_q}$, $\sum_j\frac{C_l,_jh_j}{\sum_hC_l,_k}$, and $\sum_{U_l\leftrightarrow R_i}f_i.$ The importance flowing on different types of edges is weighted and adjusted by $\beta$ , $\gamma$ , $\alpha$ , and  $\sigma$. Here $\beta$ and $\gamma$ are parameters to adjust the influence of importance propagation along interlinks and intra-links. The links between the same types of nodes are called intra-links, for example, the links among requests. The links between different types of nodes are called interlinks, for example, the links between requests and products. $\alpha$ and $\sigma$ are other parameters to adjust the influence of the \textit{stationary preference} (initial importance)\cite{Baeza-Yates:2006:GPD:1148170.1148225} of requests and the importance flow along the semantic links between requests. 0 < $\beta$ , $\gamma$ , $\alpha$, $\sigma$ < 1, which can be defined by domain experts. In our experiments, they are chosen from a 0.85 to 0.99 that are commonly used in practice \cite{Kamvar:2003:EMA:775152.775190}. Then $$f_i = (1 - \beta) \sum_{U_l \leftrightarrow R_i} h_l + \beta \Bigg( (1-\alpha) \frac{w_i}{\sum_q w_q} + \alpha \sum_{j} \frac{A_i,_jf_j}{\sum_kA_i,_k} \Bigg), $$
+
+$$h_l = (1 - \gamma) \sum_{U_l \leftrightarrow R_i} f_i + \gamma \Bigg( (1-\sigma) \frac{o_l}{\sum_q o_q} + \sigma \sum_{j} \frac{C_i,_jh_j}{\sum_kC_l,_k} \Bigg), $$ 
+
+where $U_l \leftrightarrow R_i$ means that the product $U_l$ is linked with the request $R_i$. In our experiments, domain experts give more influence to importance propagation along intra-links than interlinks since ``representativeness" of a request is considered to be more emphasized. More influence is given to semantic links than stationary preference. We can see that the SELRank algorithm is similar to HITS \cite{Kleinberg:1999:ASH:324133.324140} in the way that \textit{f} and \textit{h} continuously reinforce each other until they converge. The detailed algorithm is listed in Algorithm 1, where A is the request semantic similarity matrix, C is the product similarity matrix, \textit{w} is the customer weight vector, \textit{o} is the product weight vector, and \textit{B} indicates the request-product link matrix. Algorithm 1 presents the SELRank algorithm in the matrix computation format. 
+
+\begin{algorithm}
+\textbf{Input}\\
+Request semantic similarity matrix $A \in \mathbb{R}^{n x n}$\\
+Product similarity matrix \textit{C} $\in \mathbb{R}^{m x m}$\\
+Customer weight vector \textit{w} $\in \mathbb{R}^{n x 1}$\\
+Product weight vector \textit{o} $\in \mathbb{R}^{m x 1}$\\
+Request-product link matrix \texit{B} $\in \mathbb{R}^{n x m}$\\
+Parameters $\alpha, \beta, \gamma,$ and $\sigma$
+
+\textbf{Output}\\
+Ranking score vector \textit{f} $\in \mathbb{R}^{n x 1}$ of requirements\\
+Ranking scores vector \textit{h} $\in \mathbb{R}^{m x 1}$ of products
+
+\textbf{Algorithm Steps}:\\
+1. Normalize \textit{w} and o that $\sum_i{w_i = 1}$ and $\sum_l o_l = 1$\\
+2. Normalize \textit{A} and \texit{C} that $\sum_j(\alpha A_i,_j + (1 - \alpha)w_i) = 1$ and $\sum_j(\sigma C_i,_j + (1-\sigma)o_l = 1$\\
+3. Initialize \textit{f} and \textit{h} to $(1-n, \cdots , 1/n)$ and $(1/m, \cdots , 1/m)$\\
+4. While \textit{f} and \textit{h} converge\\
+5. $f = (1-\beta)Bh + \beta((1-\alpha)w + \alpha A f$( B is row normalized)\\
+6. $h = (1-\gamma)B^T f+\gamma((1- \sigma)o + oCh)$ (B is column normalized)\\
+7. Normalize \textit{f} and \textit{h} that $\sum_i f_i = 1$ and $\sum_l h_l = 1$
+     \caption{{\bf The SELRank Algorithm} \label{Algorithm 1}}
+\end{algorithm}
+
+Note that the final rank vectors can be obtained from eigenvector solutions. We can write that $v=(f,h)^T,$ and $v = Dv$, where $$D=\Bigg[{\beta(1-\alpha)w \cdot 1^T + \beta \alpha A } {(1-\beta) B} {(1-\gamma)B^T } {\gamma(1-\sigma)o \cdot 1^T + \gamma \sigma C}\Bigg]$$
+
+%----this formula needs more formatting, moving on to finish paper-----
+The entries in matrix D indicate the amount of "importance" the related customer, product, and requests can contribute to the importance of the entry node. In the following, we will show that SELRank algorithm can converge by proving two theorems. 
+
+%-------------format theoreom here------------------
+\begin{theorem}\label{thm:theorem4.1}
+D is an Ergodic matrix
+\end{theorem}
+
+\begin{proof}[Proof of Theorem~\ref{thm:theorem4.1}]
+From the preceding equation, D is a stochastic or transition matrix because it is a square matrix each of whose rows consists of non-negative real numbers, with each row summing to 1. It is also an ergodic matrix to represent the transition probabilities in a discrete-time Markov process. The Markov network is composed of both products and requests. The links in the network could be request-request links, product-product links, and request-product links. The entry value in matrix D is nonzero and can be regarded as the corresponding transition probability. D is both \textit{strongly connected and aperiodic}
+\end{proof}
+
+%------------Theorem needs to be formatted here-----
+\begin{theorem}\label{thm:theorem4.2}
+The SELRank algorithm will converge.
+\end{theorem}
+%-------------------end------------------------
+\begin{figure}
+    \centering
+    \includegraphics[width=0.30\textwidth]{images/Figure3.png}
+    \caption{Keyword query with SELRank algorithm}
+    \label{fig:3}
+\end{figure}
+
+\begin{proof}[Proof of Theorem~\ref{thm:theorem4.2}]
+Because D is a Ergodic transition matrix for a Markov chain as proved before, then, as $n\rightarrow \infty$ , the powers $P^n$ approach a limiting matrix with all rows the same vector. This stationary vector is a strictly positive probability vector. We can obtain this stationary solution from the principle eigenvector \cite{berkhin2005survey} \cite{Langville:2005:SEM:1055334.1055396}. 
+\end{proof}
+
+We can consider the SELRank algorithm a improved version of the PageRank algorithm[Page], with the difference of links as both hyperlinks and semantic links weighted by D. Some things that SELRank and PageRank share in common are: (1) Both model the Markon process discretely; (2) We calculate the importance score by adding the importance score of all connected nodes; (3) the importance of the node is split averagely onto connected edges. We know that v is the eigenvector centrality of our weighted graph D. We also know that v can be found by calculating the principle eigenvector corresponding to the greatest eigenvalue. There, we know that SELRank converges just as fast as PageRank. 
+
+\subsection{Search VoC with SELRank Algorithm}
+We consider two situations for using VoC with SELRank, this assumes users can be any functional  member of the business including executives, product marketing, engineers, or sales representatives. There are two situations to consider:
+
+\begin{enumerate}
+    \item Search VoC data based on Keywords. A keyword query is used to produce a ranked list of user requests and relevant products
+    \begin{enumerate}
+        \item The algorithm converts the keywords into a semantic query using LSI. The query is then matched with previously processed customer requests
+        \item We obtain a root set of match requests through measuring the cosine similarity. This is depicted through the inner eclipse in Figure 3. Usually, the keyword query does not contain enough description to complete the root set
+        \item Any requests that is not in the root set with strong links to the root set are also put into the final retrieved request set. 
+        \item The retrieved requests and any related products are presented to the user based in order of their rank scores. 
+    \end{enumerate}
+    \item Product based query on VoC data. When any end-user enters more than 1 product name, a list of ranked customers and their related products are provided. Situation 2 uses similar steps to Situation 1 with the exception that the set returned will only have requests directly linked to any products that were entered in the query. 
+\end{enumerate}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.49\textwidth]{images/pagerank.png}
+    %\caption{The comparison between SELRank and PageRank}
+    %\label{fig:4}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.49\textwidth]{images/selrank.png}
+    \caption{Comparing SELRank and PageRank}
+    \label{fig:4}
+\end{figure}
+
+\begin{table*}[]
+    \begin{tabular}{|l|l|l|l|l|}
+    \hline
+\textbf{Name} & \textbf{HITS} & \textbf{PageRank} & \textbf{Top-Sensitive} & \textbf{SELRank} \\ 
+ & & & \textbf{PageRank} & \\ \hline
+\textbf{Links} & Hyperlinks & Hyperlinks & Hyperlinks & Hyperlinks; Semantic links \\ \hline 
+ \textbf{Graph} & Flat web graph & Flat web graph & Flat web graph  & Inter-related networks with\\
+ \textbf{structure} & & & & different domain node types \\\hline
+ \textbf{Semantic} & None & None & Linguistic Topic hierarchy& Domain Semantic model\\ 
+ \textbf{model} & & & & \\ \hline
+ \textbf{Output} & important Hub pages; & Assigns a-prior & multiple a-prior importance & Simultaneously assigns more \\
+ & important Authority & importance estimates to  & estimates to pages; One & than one ranking vector per \\
+ & pages &web pages & PageRank score per basic topic & domain term or per  \\
+ & & & & feature cluster \\\hline
+ \textbf{Query} & Query specific rank & Query-independent & Make use of query context;& Query-independent rank \\
+ \textbf{Processing} & score; expensive at & rank score; inexpensive & query-specific at runtime & score; inexpensive \\ 
+ & runtime& runtime & &\\ \hline
+  %&  & & \\
+    \end{tabular}
+    \caption{The Comparison among SELRank and Some Existing Representative Ranking Methods}
+    \label{tab:1}
+\end{table*}
+
+
+\subsection{Comparison with the Existing Web Page Ranking Algorithms}
+Link analysis algorithms are essential in conveying the importance in web pages and as a result, play a large role in Web search systems. The HITS algorithm \cite{Kleinberg:1999:ASH:324133.324140}takes advantage of query-time processing to locate authorities and hubs that exist in a sub-graph of the Web consisting of both the results to a query and any local neighbors as results. Google's PageRank [Page et al. 1998] utilizes a a ranking vector that is computed once offline, independently of any search query, and then estimates the ``importance" of all web pages. The scores produced by PageRank are then combined with query-specific Information Retrieval scores to rank query results. Over the last few years, many similar algorithms have enhanced PageRank's functionality. Some of these algorithms include weighted PageRank[Jiang et al. 2004], hierarchical PageRank \citestyle{Xue:2005:EHS:1076034.1076068}, two-layer PageRank \cite{Wu:2005:ULM:1068511.1069402}, and topic-sensitive PageRank \cite{Haveliwala:2002:TP:511446.511513}.
+
+Unfortunately, the existing ranking algorithms are ineffective at prioritizing customer requests due to the problem of customer requests being extremely domain-driven. In addition, the link-based relationships within this problem contain far more complicated inter-related networks. All methods mentioned above solely address the graph-topological links in the Web page, generating single-page ranking vectors. For example, Haveliwala [2002], a linguistic-based topic structure is solely capable of taking advantage of different topics and biasing ranking scores, failing to provide any type of meaning or ``semantic-link" into the Web page. We have provided an depiction of the differences between PageRank and SELRank in Figure 4.
+
+Table 1 compares the ranking algorithms mentioned above with SELRank, highlighting the main advantages of SELRank in bold letters.
+
+\begin{table*}[]
+    \centering
+    \begin{tabular}{|l|l|l|l|l|}
+    \hline
+\textbf{Scan} & \textbf{UI} & \textbf{Media} & \textbf{Print} & \textbf{Copy} \\ \hline
+Multipage TIDD; & interface; UI; Keyboard & Paper Size; US Legal Size; & Controller; PCL driver; & Copy; Copeland\\
+OCR; ADF; Image & Unicode Keyboard & Simplex; Duplex; LEF & Digital Front End;&  \\
+Adjustment; Scan & &  & Novel NDPS Broker; & \\
+& & & Print &  \\
+\hline
+
+\textbf{Fax} & \textbf{Accounting} & \textbf{Security} & \textbf{Device Management} & \textbf{Job Management} \\  
+\hline
+LanFax; fax;  & Account; Auditron; & Authentication; Proxy server; & SNMP; XDM; Device  & Job; Job descript; Job \\ 
+RightFax; & Administrator; &  USER ID; Password; LDAP & Manager; Remote install& track; JDF; JDF ticket \\
+Phonebook & Group name; Equitrac & & & \\
+ & & & & \\ \hline
+ \textbf{Email} & \textbf{Repository} & \textbf{Protocol} & \textbf{Finishing} & \textbf{Misc} \\
+ \hline
+ Email address; & PaperPort; CIFS; Filing & TCP; 802.1; NDPS; SNPM; & Staple; Fold; Booklet & MDF; Smartsend; XOS \\
+ mailbox & System; TIFF & FTP & & suite; DC12 DocuColor\\
+& & & & \\ \hline
+
+    \end{tabular}
+    \caption{Domain Keywords of FER Tasks for 15 Functional Teams}
+    \label{tab:2}
+\end{table*}
+
+\begin{table}[h!]
+    \centering
+    \begin{tabular}{|c|c|c|c|}
+    \hline
+\\
+\textbf{Scan} \\
+
+\hline
+WorkCentrePro35:45:55\\
+AllDocumentCentres \\
+WCP2128:2636:3545Color\\
+\hline
+\\
+\textbf{Accounting}\\
+\hline
+AllDocumentCentres\\
+WCP2128:2636:3545Color\\
+WorksCentrePro35:45:55\\
+\hline
+\\
+\textbf{Security}\\
+\hline
+WorkCentrePro35:45:55
+WorkCentrePro232: \\
+238:245:255:265:275\\
+AllDocumentCentres\\
+\hline
+    \end{tabular}
+    \caption{Top Ranked Products in Feature Clusters}
+    \label{tab:4}
+\end{table}
+
+\section{Case Study on XOG FER Dataset}
+\subsection{Decision support Application Scenarios}
+
+We will be conducting a study on a dataset provided by the XOG (Xerog Office Group). This dataset holds 1878 feature requests between 2000 to 2006. We have 83 total Xerox products that are mentioned in the requests. XOG FER is a library of requests made by the customers that are collected through many touch-points, including call center notes, sales initiatives or meeting notes, marketing events, survey, or emails. The customer requests for one or more XOG products are described by each data entry with reported times. Any related information on the customer is also available. This information consist of items such as how many Xerox machines are currently owned by the customer. 
+
+The analytic framework we use combines expert knowledge of the field with data-driven analytical concepts to obtain actionable information from the VoC dataset. We can enable the decision support situations after collected this information.
+
+\begin{itemize}
+    \item Using the categorization data with domain knowledge, we separate VoC data into related feature clusters. This is done to realize the main theme and how the trends of the customer is evolving. 
+    \item Using the VoC search, we can pull the ranked requests and products based off a feature cluster query, generic keyword query, or product-specific query in order to perform market research or facilitate the feature development process. 
+\end{itemize}
+
+Next, we explain other possible application scenarios in greater detail. 
+
+\subsection{Feature Cluster Extraction from FER with Domain Knowledge}
+To begin, we enter the XOG FER dataset to the framework (this was discussed in Section 2) passing the pre-processing step (1). One form of domain knowledge on existing XOG feature teams is described by Table II. This table shows any keywords or terminology that is often used in each feature team. There are usually 15 feature clusters on the term ``Scan", 
+
+We list each feature cluster, as well as parts of corresponding keywords. To name a few, we include, ``Media", ``Copy", ``Print", ``Fax", ``UI", ``Accounting", ``Device Management", ``Email", ``Security", ``Finishing", ``Job Management", ``Repository", ''Protocol", and ``Misc Category" (such as bold letters). The domain experts provide these terms to the system and each feature clusters manage their respective requests. 
+
+In this section, we use the knowledge transformation model on FER to describe the results of our feature clustering. Initially, our team applied the unsupervised clustering algorithm on the XOG FER dataset. By ignoring the the knowledge provided by the feature teams and related key words, we realized that it was difficult to find good results. To begin, if we are using an unsupervised clustering algorithm, it is required that we know the amount of clusters that are present. Next, the pre-processing phase may often remove infrequent but important keywords. Last and most importantly, any clusters of request from unsupervised cluster cannot be linked to domain-defined feature clusters.
+
+Through taking advantage of domain knowledge, our clustering algorithm is able to break down requests into known domain feature clusters that have previously been verified by domain experts. In table III, the results are analyzed and found to have significant value int he XOG feature team content. The first column relates to feature cluster id, the second column mentions the feature name, the third column tells us the number of requests in the corresponding feature cluster, and the fourth column depicts the normalized importance scores adding up to 1. We found the ``security feature cluster contains the greatest importance score (we assume the value of the feature cluster is based on the number of machines that the feature cluster-related company owns.) This data demonstrates the domain experts that ``security" is the most important feature that should be reviewed.
+
+Considering the time, the changing importance trend of all 15 feature clusters described in Table II are able to be obtained and captured, shown in Figure 5. We can quantify the time into 14 different sections between 2000 to 2006 through the X-axis.  This action gives us 15 different important curves that are related to feature clusters. We then normalize to 1 the sum of all importance scores of each section. We can find the importance score of a feature cluster within a section of time by looking at the vertical space from the current feature curve and the feature curve below. Looking at Figure 5, we can see that the ``Security feature cluster and ``Misc" feature cluster become more and more important.
+
+The domain experts also validate that ``Security and ``Misc" are continually becoming more important while ``Print", ``Scan", and ``Copy" continue to change with time.
+
+\begin{table}[]
+    \centering
+    \begin{tabular}{|c|c|c|c|}
+    \hline
+FID & Name & Req Num & Importance \\ \hline
+1 & Scan & 366 & 0.1173\\ \hline
+2 & UI & 116 & 0.0877  \\ \hline
+3 & Media & 126 & 0.0487 \\ \hline
+4 & Print & 245 & 0.1417 \\ \hline
+5 & Copy & 73 & 0.0301  \\ \hline
+6 & Fax & 77 & 0.0548 \\ \hline   
+7 & Accounting & 172 &0.0720  \\ \hline
+8 & Security & 210 & 0.1451  \\ \hline
+9 & Device Management & 25 & 0.0342 \\ \hline
+10 & JobManagement & 156 & 0.0615 \\ \hline
+11 & Email & 21 & 0.0154\\ \hline
+12 & Repository & 35 & 0.0078 \\ \hline 
+13 & Protocol & 108 & 0.0774 \\ \hline
+14 & Finishing & 32 & 0.0084 \\ \hline
+15 & MISC & 116 & 0.0997 \\ \hline
+    \end{tabular}
+    \caption{Experimental Results of Feature Clustering}
+    \label{tab:3}
+\end{table}
+
+\begin{table*}[t!]
+    \centering
+    \begin{tabular}{|l |l|l|}
+    \hline
+\textbf{Scan} & & \\
+\hline
+1000 & WorkCentrePro35:45:55 & Customer requests ability to create a scan template that has certain requirements that \\
+ & & can not be changed by the end user, i.e. Users should not be able to charge the settings  \\
+1000 & WorkCentrePro35:45:55 & of that scan job at the UI. Mailbox scanning (like the C2424) on the WCP line of   \\
+ & & products, User Scan jobs are stored locally on the device and the user can then access  \\
+  & & them from a client at their convenience. Not sure about security requirements file size  \\
+  & & limits formats etc.\\
+  \hline
+  \textbf{Security} & &\\
+  \hline
+  1000 & WorkCentrePro35:45:55 & User are required to authenticate to network to scan to email externally at WCP for \\
+   & & email customer considers it more secure that email works via user credentials instead \\
+    1000 & WorkCentrePro35:45:55 & of enabling a relay exception for the WCP SMTP Authentication, In light of a number \\
+     & & of   e-mail virus outbreaks this year Bagle Netsky to name a few. Exelon is trying to  \\
+      & &  setup authentication based relay control on their SMTP servers as an alternative to  \\
+      & & IP based relay.\\
+      & & \\
+       \hline 
+       \textbf{Accounting} & &\\
+       \hline
+     1000 & AllDocumentCentres & Enhance the security / ease-of-use Network Accounting features. With the release of  \\
+     & & Xerog Page Accountant and the strength of Xerox Business Partner solutions  \\
+     750 & AllDocumentCentres & the importance of network accounting functionality is increasing. Ability to limit the \\
+     & & accounting JBA devices to accept control commands from only one IP/location.  \\
+    & & Equitrac's JBA freeware will soon be available to all Xerox device users. It will be   \\
+    & & easy to install in multiple locations, this will  service/call in problem frustration with \\ 
+    & & create a accounting and costs. \\
+    & & \\
+    \hline
+    \end{tabular}
+    \caption{Top Ranked Requests in Feature Clusters}
+    \label{tab:5}
+\end{table*}
+
+\begin{figure*}[t!]
+    \centering
+    \includegraphics[width=.9\textwidth]{images/Figure5.png}
+    \caption{Evolving feature trends of 15 feature clusters along 14 time periods}
+    \label{fig:5}
+\end{figure*}
+
+
+\begin{figure*}[t!]
+    \centering
+    \includegraphics[width=0.7\textwidth]{images/Figure6.png}
+    \caption{Office equipment product families}
+    \label{fig:6}
+\end{figure*}
+
+\begin{figure*}[t!]
+    \centering
+    \includegraphics[width=\textwidth]{images/Figure7.png}
+    \caption{Screenshot of ranked customers requests and products based on keywords ``Security Scan" query.}
+    \label{fig:7}
+\end{figure*}
+
+\subsection{VoC Prioritization and Search}
+In order to weigh the semantic links between each request, we use cosine similarity. In Figure 6, we show a small part of how semantic links between products are weighted with the conceptual distance derived from the domain hierarchical product family graphs. As mentioned in Algorithm 1, we use SELRank to rank the requests in each feature cluster. We set the parameters so that they are exactly as the PageRank algorithm, where $\alpha$ and $\sigma$ are set to 0.85, and $\beta$ and $\gamma$ are 0.9. The results we received from doing so were decided to be extremely valuable by our domain experts. Because of space limitations, we were unable to provide all 15 feature clusters. Table V provides the highest rated two requirements in the ``Scan", ``Security", and ``Accounting" feature clusters.
+
+The first column within the table describes the number of products that the corresponding customer has, the second column mentions one similar or related product, and the last column provides the request text description. Table IV shows the products within these feature clusters that are highest ranked. 
+
+Some other studies that we did included both keyword-based queries, as well as product-based queries, both that have been described in Scenario-1 and Scenario 2 in Section 4.2. To show the VoC search interfaces for both keywords and product queries, we use Figure 7, which provide the keyword query with the keyword ``Security Scan"). Every return request is linked to the number of products that the corresponding customer has, the feature cluster that the request belongs to, and a text description explaining the cluster. In Figure 7, we demonstrate how the returned results from searching ``Security Scan" comes from each of the two parts, ``Security", and ``Scan". The highest ranked products related to our search include WorkCentrePro35:45:55, WorkCen- trePro232:238:245:255:265:275, AllDocumentCentres, WCP2128:2636:3545Color, and WorkCentrePro32:40Color.
+
+To address the product-based query, a fraction of the results that were found by the search have been simplified below: 
+
+\begin{itemize}
+    \item For product WorkCentrePro123:128, the most important customer requests are related to ``Protocol" and ``Security".
+    \item For product WorkCentreM24, the most important customer requests are related to ``Scan" and ``Repository";
+    \item For product WorkCentrePro232:238:245:255:265:275, the most important customer requests are related to ``Device Management", ``Security", and ``Fax".
+    \item For product DC5xxST, the most important customer requests are related to ``Print", and ``UI". 
+    \item For product Docucolor240:250, the most important customer requests are related to ``Print".
+\end{itemize}
+To confirm our results, we had domain experts validate that the information provided by this model is accurate and reflective of our customers real concerns. We want to know if these results will provide our experts with valuable information relating to key feature enhancements, improving the feature development and market analysis process, and organizing and processing customer requests. As is with many other ranking algorithms, the effectiveness of SELRank is subjective. Therefore, it is important to verify and compare these results with domain experts and further testing against similar algorithms. Some other studies that were done aimed to study the effectiveness of a few combined queries and the ranked results for each feature cluster and product. For example, we used queries such as ``WCP", ``MFD UI", ``print driver", ``SMTP authentication", ``scan to email", ``image adjustment", ``security scan", ``account auditron", and ``color print". After conducting our study, all three of our domain experts believed that the SELRank algorithm performs better than other strategies over 90 percent of the time. The other strategies include ranking with only considering hyperlinks, ranking based on the importance of customer, and ranking with only considering the semantic links by using the PageRank algorithm. Not only that, but the SELRank algorithm allows the use of a general framework for ranking various inter-correlated networks. To improve computation complexity, this can be easily improved by directly applying additional methods such as the extrapolation method \cite{Kamvar:2003:EMA:775152.775190}, the adaptive method \cite{Kamvar:2003:EMA:775152.775190}, the block structure method \cite{Broder:2004:EPA:1013367.1013537}; \cite{Kamvar:2003:EMA:775152.775190}, \cite{berkhin2005survey}, used in PageRank.
+
+\section{Conclusion}
+Throughout this article, we discuss utilizing a evolved framework that combines data-driven mining algorithms and expert domain knowledge to more effectively analyze Voice of Customer data. By testing our new model on the customer request data at Xerox Office Group, we were able to successfully integrate our research and propose new and valuable information. This hybrid model allows us to analyze Voice of the Customer information in the following ways: (1) prioritizing customer feature requests (2) breaking down Voice of the Customer data into related clusters to effectively evaluate the main themes and changing feature trends. By providing an effective method of data analysis, our model can promote effective feature development within each company and help drive effective business strategy and decision making.
+
+\bibliographystyle{plain}
+\bibliography{bibliography.bib}
+%\printbibliography
+
+\end{document}
